@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iMemo - 비표준 매트릭스 코드 에디터 (이미지 첨부 지원)</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --border: #e2e8f0;
+      --accent: #10b981;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+    .container {
+      width: 100%;
+      max-width: min(98vw, 1920px);
+      margin: 0 auto;
+      transition: max-width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    header {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 14px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #0f172a;
+    }
+    .badge {
+      font-size: 12px;
+      background: #e0e7ff;
+      color: #3730a3;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      margin-bottom: 24px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    /* Editor Fullscreen/Maximized Mode */
+    .card.maximized {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 10000 !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      border: none !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background: #ffffff !important;
+      box-shadow: none !important;
+    }
+    .card.maximized .toolbar {
+      flex-shrink: 0;
+      padding: 12px 24px;
+      background: #f8fafc;
+      border-bottom: 2px solid var(--border);
+    }
+    .card.maximized #editor {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      height: 100% !important;
+      font-size: 16px !important;
+      padding: 30px 48px !important;
+      overflow-y: auto !important;
+    }
+    .card.maximized .settings-panel {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      padding: 10px 24px;
+      background: #f8fafc;
+    }
+    .card.maximized .action-row {
+      flex-shrink: 0;
+      padding: 12px 24px;
+      background: #f1f5f9;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--border);
+    }
+    .btn-tool {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.15s ease;
+    }
+    .btn-tool:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+    .separator {
+      width: 1px;
+      height: 20px;
+      background: #cbd5e1;
+      margin: 0 4px;
+    }
+    #editor {
+      min-height: 240px;
+      max-height: 550px;
+      overflow-y: auto;
+      padding: 20px 28px;
+      outline: none;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    #editor:focus {
+      box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    #editor table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0;
+    }
+    #editor th, #editor td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 14px;
+      text-align: left;
+    }
+    #editor th {
+      background: #f8fafc;
+      font-weight: 700;
+    }
+    #editor img {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin: 10px 0;
+      display: block;
+    }
+    .settings-panel {
+      padding: 16px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-control {
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .action-row {
+      padding: 16px 20px;
+      background: #f8fafc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Preview Section */
+    .preview-section {
+      padding: 24px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+      text-align: center;
+      display: none;
+      transition: all 0.2s ease;
+    }
+    .preview-section.folded {
+      padding: 14px 20px;
+    }
+    .preview-section.folded #codeBody {
+      display: none;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .preview-section:not(.folded) .preview-header {
+      margin-bottom: 16px;
+    }
+    .stats-badge {
+      font-size: 13px;
+      color: #475569;
+      background: #f1f5f9;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    .canvas-wrapper {
+      display: inline-block;
+      padding: 20px;
+      background: #ffffff;
+      border: 4px solid #000000;
+      border-radius: 4px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    canvas {
+      display: block;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .controls-row {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .btn-ctrl {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-ctrl:hover { background: #e2e8f0; }
+    .progress-bar-container {
+      width: 260px;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+    /* Fullscreen Modal */
+    .fullscreen-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #ffffff;
+      z-index: 99999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+    }
+    .btn-close-fs {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: #0f172a;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    /* Toast Notification */
+    .toast-msg {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 10001;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>iMemo <span>코드 생성기</span> <span class="badge">이미지 첨부 지원</span></h1>
+    <div style="font-size: 13px; color: #64748b;">클라우드 PC Chrome 최적화 &amp; 가로형 고밀도 바코드</div>
+  </header>
+
+  <!-- Editor Card -->
+  <div class="card" id="editorCard">
+    <div class="toolbar">
+      <button class="btn-tool" onclick="formatDoc('formatBlock', '<h1>')">H1</button>
+      <button class="btn-tool" onclick="formatDoc('formatBlock', '<h2>')">H2</button>
+      <button class="btn-tool" onclick="formatDoc('formatBlock', '<h3>')">H3</button>
+      <button class="btn-tool" onclick="formatDoc('formatBlock', '<p>')">본문</button>
+      <div class="separator"></div>
+      <button class="btn-tool" onclick="formatDoc('bold')"><b>B</b></button>
+      <button class="btn-tool" onclick="formatDoc('italic')"><i>I</i></button>
+      <button class="btn-tool" onclick="formatDoc('underline')"><u>U</u></button>
+      <button class="btn-tool" onclick="formatDoc('strikeThrough')"><s>S</s></button>
+      <div class="separator"></div>
+      <button class="btn-tool" onclick="formatDoc('insertUnorderedList')">• 목록</button>
+      <button class="btn-tool" onclick="formatDoc('insertOrderedList')">1. 목록</button>
+      <button class="btn-tool" onclick="insertTable()">표 삽입</button>
+
+      <!-- Image Attachment Button -->
+      <button class="btn-tool" onclick="document.getElementById('imageFileInput').click()" style="background: #eef2ff; color: #4338ca; border-color: #c7d2fe;" title="이미지 파일 첨부 또는 Ctrl+V로 붙여넣기">
+        🖼️ 이미지 첨부
+      </button>
+      <input type="file" id="imageFileInput" accept="image/*" style="display:none;" onchange="handleImageFileSelect(event)">
+
+      <button class="btn-tool" onclick="clearFormatting()" title="선택 영역 또는 문서 전체의 서식을 지웁니다">🧹 서식 지우기</button>
+
+      <!-- Maximize Editor Button -->
+      <button class="btn-tool" id="btnToggleMaximize" onclick="toggleMaximizeEditor()" style="margin-left: auto; background: #0f172a; color: #ffffff;">
+        ⛶ 편집창 최대화
+      </button>
+    </div>
+
+    <!-- Content Editable Area -->
+    <div id="editor" contenteditable="true" spellcheck="false">
+      <h2>회의록 및 업무 공유 보고서</h2>
+      <p>본 문서는 <b>iMemo</b>를 통해 가로형 비표준 매트릭스 코드로 인코딩된 문서입니다.</p>
+      <ul>
+        <li><b>작성 일자:</b> 2026년 11월 2일</li>
+        <li><b>보안 등급:</b> 사내 한정 (비표준 알고리즘 적용)</li>
+        <li><b>이미지 지원:</b> 화면 캡처 클립보드 붙여넣기(Ctrl+V) 및 파일 첨부 지원</li>
+      </ul>
+      <table border="1">
+        <thead>
+          <tr><th>항목</th><th>내용</th><th>비고</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>프레임 보정</td><td>Reed-Solomon GF(256) 30% 오류정정</td><td>노이즈 내성</td></tr>
+          <tr><td>색상 변조</td><td>팔레트 실시간 캘리브레이션</td><td>원격PC 색변화 대응</td></tr>
+          <tr><td>대용량 &amp; 이미지</td><td>슬라이드 루프 애니메이션 및 XOR 복구</td><td>분실 프레임 자동복구</td></tr>
+        </tbody>
+      </table>
+      <p>macOS Swift 전용 리더기에서 화면 캡처 영역을 지정하면 이미지와 서식이 원본 그대로 복원됩니다.</p>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel">
+      <div class="form-group">
+        <label>가로 해상도 폭 (Width)</label>
+        <select id="selWidth" class="form-control" onchange="onWidthPresetChange()">
+          <option value="screen" id="optScreen">모니터 가로폭 맞춤</option>
+          <option value="1920">1920 px (Full HD)</option>
+          <option value="1600">1600 px</option>
+          <option value="1400">1400 px</option>
+          <option value="1200" selected>1200 px (권장)</option>
+          <option value="1000">1000 px</option>
+          <option value="800">800 px</option>
+          <option value="custom">직접 입력...</option>
+        </select>
+        <input type="number" id="customWidthInput" class="form-control" style="display:none; margin-top:4px;" value="1200" min="400" max="3840" oninput="updateContainerWidth()" />
+      </div>
+
+      <div class="form-group">
+        <label>코드 색상 옵션</label>
+        <select id="selColorMode" class="form-control">
+          <option value="0" selected>2컬러 (흑백 - 원격 노이즈 최강)</option>
+          <option value="1">4컬러 (2비트/셀 - 용량 2배)</option>
+          <option value="2">8컬러 (3비트/셀 - RGB 코너)</option>
+          <option value="3">16컬러 (4비트/셀 - 이미지 권장, 용량 4배)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>셀 픽셀 크기 (정수 px)</label>
+        <select id="selCellSize" class="form-control">
+          <option value="6">6 px (밀도 높음)</option>
+          <option value="8" selected>8 px (기본 - 화면 캡처 추천)</option>
+          <option value="10">10 px (스케일링/저해상도 강함)</option>
+          <option value="12">12 px (최대 안정성)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>슬라이드 간격</label>
+        <select id="selInterval" class="form-control">
+          <option value="400">400 ms (초고속)</option>
+          <option value="600">600 ms (빠름)</option>
+          <option value="700" selected>700 ms (권장)</option>
+          <option value="1000">1000 ms (여유)</option>
+          <option value="1500">1500 ms (안정적)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>첨부 이미지 압축 화질</label>
+        <select id="selImgQuality" class="form-control">
+          <option value="fast" selected>고압축 (640px / 15~25KB - 빠른 전송)</option>
+          <option value="std">표준 화질 (800px / 25~45KB)</option>
+          <option value="high">고화질 (1024px / 45~80KB)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Action Row -->
+    <div class="action-row">
+      <div style="font-size: 13px; color: #64748b;">
+        문서 및 첨부 이미지를 가로형 비표준 코드로 변환하여 화면에 표시합니다.
+      </div>
+      <button class="btn-primary" onclick="generateCode()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+          <polyline points="21 15 16 10 5 21"></polyline>
+        </svg>
+        이미지 생성 (IMC 코드)
+      </button>
+    </div>
+  </div>
+
+  <!-- Preview Section (Displayed on click) -->
+  <div class="preview-section" id="previewSection">
+    <div class="preview-header">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <h3 style="font-size: 16px; font-weight: 700;">비표준 매트릭스 코드 화면 표시</h3>
+        <button class="btn-tool" id="btnToggleFoldCode" onclick="toggleFoldCode()" style="font-size: 12px; padding: 4px 10px; background: #e2e8f0;">
+          코드 접기 ▲
+        </button>
+      </div>
+      <div id="statsBadge" class="stats-badge">준비 완료</div>
+    </div>
+
+    <!-- Collapsible Code Body -->
+    <div id="codeBody">
+      <div class="canvas-wrapper" id="canvasWrapper">
+        <canvas id="matrixCanvas"></canvas>
+      </div>
+
+      <div class="controls-row">
+        <button class="btn-ctrl" onclick="togglePlayPause()" id="btnPlayPause">일시정지 ⏸</button>
+        <button class="btn-ctrl" onclick="prevFrame()">◀ 이전 프레임</button>
+        <span id="frameIndicator" style="font-weight: 700; min-width: 90px;">프레임 1 / 1</span>
+        <button class="btn-ctrl" onclick="nextFrame()">다음 프레임 ▶</button>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <button class="btn-ctrl" style="background:#0f172a; color:#fff;" onclick="openFullscreen()">⛶ Chrome 전체화면 확대</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen Overlay Modal -->
+<div class="fullscreen-overlay" id="fsOverlay">
+  <button class="btn-close-fs" onclick="closeFullscreen()">닫기 ✕ (ESC)</button>
+  <div style="margin-bottom: 12px; font-weight: 600; color: #334155;" id="fsFrameInfo">프레임 1 / 1</div>
+  <div class="canvas-wrapper" id="fsCanvasWrapper">
+    <canvas id="fsMatrixCanvas"></canvas>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast-msg" id="toastMsg">알림</div>
+
+<script>
+/* ==========================================================================
+   1. WYSIWYG & UI Utilities (Image Attachment & Chrome Optimized)
+   ========================================================================== */
+function formatDoc(cmd, val = null) {
+  document.execCommand(cmd, false, val);
+  document.getElementById('editor').focus();
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toastMsg');
+  toast.innerText = msg;
+  toast.style.display = 'flex';
+  setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+function clearFormatting() {
+  const editor = document.getElementById('editor');
+  const sel = window.getSelection();
+
+  if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+    const text = sel.toString();
+    if (!document.execCommand('insertText', false, text)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(text));
+    }
+  } else {
+    const html = editor.innerHTML.trim();
+    if (!html || html === '<p><br></p>') return;
+
+    if (confirm("선택된 영역이 없습니다. 문서 전체의 서식(제목, 굵게, 표, 목록 등)을 모두 지우고 일반 텍스트 문단으로 변경하시겠습니까? (이미지도 함께 제거됩니다)")) {
+      const text = editor.innerText;
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length === 0) {
+        editor.innerHTML = '<p><br></p>';
+      } else {
+        editor.innerHTML = lines.map(line => `<p>${escapeHtml(line)}</p>`).join('');
+      }
+    }
+  }
+  editor.focus();
+}
+
+function insertTable() {
+  const html = `<table border="1">
+    <thead><tr><th>항목 1</th><th>항목 2</th><th>항목 3</th></tr></thead>
+    <tbody><tr><td>데이터 A</td><td>데이터 B</td><td>데이터 C</td></tr></tbody>
+  </table><p><br></p>`;
+  document.execCommand('insertHTML', false, html);
+}
+
+/* ==========================================================================
+   Image Compression & Attachment Handling (WebP/JPEG 15~35KB)
+   ========================================================================== */
+function compressImageToDataUrl(file, maxWidth, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // Try WebP first, fallback to JPEG
+        let dataUrl = canvas.toDataURL('image/webp', quality);
+        if (!dataUrl.startsWith('data:image/webp')) {
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve({ dataUrl, width: w, height: h });
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function processAndInsertImage(file) {
+  const qualityMode = document.getElementById('selImgQuality').value;
+  let maxWidth = 640;
+  let quality = 0.65;
+  if (qualityMode === 'std') {
+    maxWidth = 800;
+    quality = 0.72;
+  } else if (qualityMode === 'high') {
+    maxWidth = 1024;
+    quality = 0.80;
+  }
+
+  try {
+    const { dataUrl, width, height } = await compressImageToDataUrl(file, maxWidth, quality);
+    const approxKb = Math.round(dataUrl.length * 0.75 / 1024);
+    const imgHtml = `<p><img src="${dataUrl}" style="max-width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 6px; margin: 8px 0; display: block;" alt="첨부 이미지" /></p><p><br></p>`;
+    document.execCommand('insertHTML', false, imgHtml);
+    showToast(`🖼️ 이미지가 첨부되었습니다 (${approxKb} KB 최적화 압축)`);
+  } catch (err) {
+    console.error("Image process error:", err);
+    alert("이미지 처리 실패: " + err.message);
+  }
+}
+
+async function handleImageFileSelect(event) {
+  const file = event.target.files[0];
+  if (file && file.type.startsWith('image/')) {
+    await processAndInsertImage(file);
+  }
+  event.target.value = '';
+}
+
+// Clipboard Paste Image Support (Ctrl+V)
+document.getElementById('editor').addEventListener('paste', async (e) => {
+  const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+  for (let item of items) {
+    if (item.type.indexOf('image') === 0) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (file) {
+        await processAndInsertImage(file);
+      }
+      return;
+    }
+  }
+});
+
+// Drag & Drop Image into Editor Support
+const editorEl = document.getElementById('editor');
+editorEl.addEventListener('dragover', (e) => e.preventDefault());
+editorEl.addEventListener('drop', async (e) => {
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const file = e.dataTransfer.files[0];
+    if (file.type.startsWith('image/')) {
+      e.preventDefault();
+      await processAndInsertImage(file);
+    }
+  }
+});
+
+// Editor Maximize Toggle
+let isEditorMaximized = false;
+function toggleMaximizeEditor() {
+  isEditorMaximized = !isEditorMaximized;
+  const card = document.getElementById('editorCard');
+  const btn = document.getElementById('btnToggleMaximize');
+  if (isEditorMaximized) {
+    card.classList.add('maximized');
+    btn.innerHTML = '✕ 원래 크기로 복귀 (ESC)';
+    btn.style.background = '#dc2626';
+    btn.style.color = '#ffffff';
+    document.body.style.overflow = 'hidden';
+  } else {
+    card.classList.remove('maximized');
+    btn.innerHTML = '⛶ 편집창 최대화';
+    btn.style.background = '#0f172a';
+    btn.style.color = '#ffffff';
+    document.body.style.overflow = '';
+  }
+}
+
+// IMC Code Folding Toggle
+let isCodeFolded = false;
+function toggleFoldCode() {
+  isCodeFolded = !isCodeFolded;
+  const section = document.getElementById('previewSection');
+  const btn = document.getElementById('btnToggleFoldCode');
+  if (isCodeFolded) {
+    section.classList.add('folded');
+    btn.innerHTML = '코드 펼치기 ▼';
+    btn.style.background = '#2563eb';
+    btn.style.color = '#ffffff';
+  } else {
+    section.classList.remove('folded');
+    btn.innerHTML = '코드 접기 ▲';
+    btn.style.background = '#e2e8f0';
+    btn.style.color = '#1e293b';
+  }
+}
+
+function updateContainerWidth() {
+  const selectedW = getSelectedWidth();
+  const container = document.querySelector('.container');
+  if (container) {
+    const desired = Math.max(1400, selectedW + 80);
+    container.style.maxWidth = `min(98vw, ${desired}px)`;
+  }
+}
+
+function onWidthPresetChange() {
+  const sel = document.getElementById('selWidth').value;
+  const custom = document.getElementById('customWidthInput');
+  if (sel === 'custom') {
+    custom.style.display = 'block';
+  } else {
+    custom.style.display = 'none';
+  }
+  updateContainerWidth();
+}
+
+function getSelectedWidth() {
+  const sel = document.getElementById('selWidth').value;
+  if (sel === 'screen') {
+    return Math.min(window.screen.availWidth || window.screen.width || 1920, 3840);
+  } else if (sel === 'custom') {
+    return parseInt(document.getElementById('customWidthInput').value, 10) || 1200;
+  } else {
+    return parseInt(sel, 10);
+  }
+}
+
+/* ==========================================================================
+   2. Compression & CRC32 (Chrome Native Stream Acceleration)
+   ========================================================================== */
+const CRC32_TABLE = new Uint32Array(256);
+for (let i = 0; i < 256; i++) {
+  let c = i;
+  for (let j = 0; j < 8; j++) {
+    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+  }
+  CRC32_TABLE[i] = c;
+}
+
+function crc32(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function makeStoredDeflate(data) {
+  const out = [];
+  let pos = 0;
+  while (pos < data.length) {
+    const chunkLen = Math.min(data.length - pos, 65535);
+    const isLast = (pos + chunkLen >= data.length) ? 1 : 0;
+    out.push(isLast);
+    out.push(chunkLen & 0xFF, (chunkLen >> 8) & 0xFF);
+    const nlen = chunkLen ^ 0xFFFF;
+    out.push(nlen & 0xFF, (nlen >> 8) & 0xFF);
+    for (let i = 0; i < chunkLen; i++) {
+      out.push(data[pos + i]);
+    }
+    pos += chunkLen;
+  }
+  return new Uint8Array(out);
+}
+
+async function compressDeflateRaw(bytes) {
+  if (typeof CompressionStream !== 'undefined') {
+    try {
+      const cs = new CompressionStream('deflate-raw');
+      const writer = cs.writable.getWriter();
+      writer.write(bytes);
+      writer.close();
+      const reader = cs.readable.getReader();
+      const chunks = [];
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      let total = chunks.reduce((acc, c) => acc + c.length, 0);
+      let res = new Uint8Array(total);
+      let offset = 0;
+      for (let c of chunks) {
+        res.set(c, offset);
+        offset += c.length;
+      }
+      return res;
+    } catch (e) {
+      console.warn("CompressionStream failed, using store block fallback", e);
+    }
+  }
+  return makeStoredDeflate(bytes);
+}
+
+/* ==========================================================================
+   3. Reed-Solomon GF(256) Multi-Block Interleaved Encoder
+   ========================================================================== */
+const PRIMITIVE = 0x11D;
+const GF_EXP = new Uint16Array(512);
+const GF_LOG = new Uint16Array(256);
+let x = 1;
+for (let i = 0; i < 255; i++) {
+  GF_EXP[i] = x;
+  GF_LOG[x] = i;
+  x <<= 1;
+  if (x & 0x100) x ^= PRIMITIVE;
+}
+for (let i = 255; i < 512; i++) {
+  GF_EXP[i] = GF_EXP[i - 255];
+}
+
+function gfMul(a, b) {
+  if (a === 0 || b === 0) return 0;
+  return GF_EXP[GF_LOG[a] + GF_LOG[b]];
+}
+
+function rsGeneratorPoly(nSym) {
+  let g = [1];
+  for (let i = 0; i < nSym; i++) {
+    const p = [1, GF_EXP[i]];
+    const ng = new Array(g.length + 1).fill(0);
+    for (let j = 0; j < g.length; j++) {
+      ng[j] ^= g[j];
+      ng[j + 1] ^= gfMul(g[j], p[1]);
+    }
+    g = ng;
+  }
+  return g;
+}
+
+function rsEncode(msgBytes, nSym) {
+  const gen = rsGeneratorPoly(nSym);
+  const out = new Uint8Array(msgBytes.length + nSym);
+  out.set(msgBytes, 0);
+  for (let i = 0; i < msgBytes.length; i++) {
+    const coef = out[i];
+    if (coef !== 0) {
+      for (let j = 1; j < gen.length; j++) {
+        out[i + j] ^= gfMul(gen[j], coef);
+      }
+    }
+  }
+  out.set(msgBytes, 0);
+  return out;
+}
+
+function rsEncodeBlocks(data, eccBytes) {
+  const total = data.length + eccBytes;
+  const numBlocks = Math.max(1, Math.floor((total + 179) / 180));
+  const eccPerBlock = Math.floor(eccBytes / numBlocks);
+
+  const blocksData = [];
+  for (let bi = 0; bi < numBlocks; bi++) {
+    const start = Math.floor(bi * data.length / numBlocks);
+    const end = Math.floor((bi + 1) * data.length / numBlocks);
+    blocksData.push(data.slice(start, end));
+  }
+
+  const encodedBlocks = [];
+  for (let bi = 0; bi < numBlocks; bi++) {
+    encodedBlocks.push(rsEncode(blocksData[bi], eccPerBlock));
+  }
+
+  const interleaved = [];
+  let maxLen = 0;
+  for (let b of encodedBlocks) if (b.length > maxLen) maxLen = b.length;
+
+  for (let col = 0; col < maxLen; col++) {
+    for (let bi = 0; bi < numBlocks; bi++) {
+      if (col < encodedBlocks[bi].length) {
+        interleaved.push(encodedBlocks[bi][col]);
+      }
+    }
+  }
+  return new Uint8Array(interleaved);
+}
+
+/* ==========================================================================
+   4. Palettes & Bit Modulation
+   ========================================================================== */
+const PALETTES = [
+  // Mode 0: 2 colors (1 bit/cell)
+  [ [0,0,0], [255,255,255] ],
+  // Mode 1: 4 colors (2 bits/cell)
+  [ [0,0,0], [0,85,255], [255,221,0], [255,255,255] ],
+  // Mode 2: 8 colors (3 bits/cell)
+  [ [0,0,0], [0,0,255], [0,255,0], [0,255,255], [255,0,0], [255,0,255], [255,255,0], [255,255,255] ],
+  // Mode 3: 16 colors (4 bits/cell)
+  [
+    [0,0,0], [0,0,128], [0,128,0], [0,128,128], [128,0,0], [128,0,128], [128,128,0], [192,192,192],
+    [128,128,128], [0,0,255], [0,255,0], [0,255,255], [255,0,0], [255,0,255], [255,255,0], [255,255,255]
+  ]
+];
+
+/* ==========================================================================
+   5. Matrix Layout & Geometry
+   ========================================================================== */
+class ImemoGrid {
+  constructor(widthCells, heightCells, colorMode) {
+    this.W = widthCells;
+    this.H = heightCells;
+    this.mode = colorMode;
+    this.bitsPerCell = [1, 2, 3, 4][colorMode];
+    this.palette = PALETTES[colorMode];
+    this.grid = new Int16Array(this.W * this.H).fill(-1);
+    this.reserved = new Uint8Array(this.W * this.H).fill(0);
+    this.initStructure();
+  }
+
+  setReserved(r, c, val) {
+    if (r >= 0 && r < this.H && c >= 0 && c < this.W) {
+      this.grid[r * this.W + c] = val;
+      this.reserved[r * this.W + c] = 1;
+    }
+  }
+
+  isReserved(r, c) {
+    if (r < 0 || r >= this.H || c < 0 || c >= this.W) return true;
+    return this.reserved[r * this.W + c] === 1;
+  }
+
+  drawFinderPattern(startR, startC, type) {
+    for (let r = 0; r < 7; r++) {
+      for (let c = 0; c < 7; c++) {
+        let isOuter = (r === 0 || r === 6 || c === 0 || c === 6);
+        let isInner = (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+        let val = 0;
+        if (!isOuter && !isInner) {
+          val = 1;
+        } else if (isInner) {
+          if (type === 'TL') val = 0;
+          else if (type === 'TR') val = (r === 3 && c === 3) ? 1 : 0;
+          else if (type === 'BL') val = (r >= 3 && c >= 3) ? 1 : 0;
+          else if (type === 'BR') val = 1;
+        }
+        this.setReserved(startR + r, startC + c, val);
+      }
+    }
+  }
+
+  initStructure() {
+    const W = this.W;
+    const H = this.H;
+
+    // 1. Four Corner Finders (7x7)
+    this.drawFinderPattern(0, 0, 'TL');
+    this.drawFinderPattern(0, W - 7, 'TR');
+    this.drawFinderPattern(H - 7, 0, 'BL');
+    this.drawFinderPattern(H - 7, W - 7, 'BR');
+
+    // 2. Outer Border (Row 0, Row H-1, Col 0, Col W-1)
+    for (let c = 0; c < W; c++) {
+      this.setReserved(0, c, 0);
+      this.setReserved(H - 1, c, 0);
+    }
+    for (let r = 0; r < H; r++) {
+      this.setReserved(r, 0, 0);
+      this.setReserved(r, W - 1, 0);
+    }
+
+    // 3. Timing Tracks (Alternating Black / White)
+    for (let c = 7; c < W - 7; c++) {
+      const bit = (c % 2 === 0) ? 0 : 1;
+      this.setReserved(1, c, bit);
+      this.setReserved(H - 2, c, bit);
+    }
+    for (let r = 7; r < H - 7; r++) {
+      const bit = (r % 2 === 0) ? 0 : 1;
+      this.setReserved(r, 1, bit);
+      this.setReserved(r, W - 2, bit);
+    }
+
+    // 4. Calibration Palette Bars (Row 3 and Row H-4)
+    const numColors = this.palette.length;
+    for (let i = 0; i < numColors; i++) {
+      this.setReserved(3, 8 + i, i);
+      this.setReserved(H - 4, 8 + i, i);
+    }
+
+    // 5. Format Metadata Cells (Row 4, cols 8..15)
+    for (let i = 0; i < 8; i++) {
+      this.setReserved(4, 8 + i, 0);
+      this.setReserved(H - 5, 8 + i, 0);
+    }
+  }
+
+  getDataCellList() {
+    const list = [];
+    for (let r = 2; r < this.H - 2; r++) {
+      const isEvenRow = (r % 2 === 0);
+      for (let ci = 2; ci < this.W - 2; ci++) {
+        const c = isEvenRow ? ci : (this.W - 1 - ci);
+        if (!this.isReserved(r, c)) {
+          list.push({ r, c });
+        }
+      }
+    }
+    return list;
+  }
+}
+
+/* ==========================================================================
+   6. Non-standard Scrambling
+   ========================================================================== */
+function makeScrambler(seed) {
+  let s = (seed >>> 0) || 0x12345678;
+  return function() {
+    s ^= (s << 13) >>> 0;
+    s ^= (s >>> 17) >>> 0;
+    s ^= (s << 5) >>> 0;
+    return (s & 0xFF) >>> 0;
+  };
+}
+
+/* ==========================================================================
+   7. Slide & Frame Generation
+   ========================================================================== */
+let slideFrames = [];
+let currentFrameIdx = 0;
+let slideIntervalId = null;
+let isPlaying = true;
+
+async function generateCode() {
+  const htmlContent = document.getElementById('editor').innerHTML.trim();
+  if (!htmlContent) {
+    alert("문서 내용을 입력해주세요.");
+    return;
+  }
+
+  updateContainerWidth();
+
+  const selectedWidthPx = getSelectedWidth();
+  const cellSize = parseInt(document.getElementById('selCellSize').value, 10);
+  const colorMode = parseInt(document.getElementById('selColorMode').value, 10);
+  const intervalMs = parseInt(document.getElementById('selInterval').value, 10);
+
+  // Check image attachments
+  const imgCount = (htmlContent.match(/<img\b[^>]*>/gi) || []).length;
+
+  // Calculate grid dimensions
+  const widthCells = Math.floor(selectedWidthPx / cellSize);
+  const heightCells = 28;
+
+  const tempGrid = new ImemoGrid(widthCells, heightCells, colorMode);
+  const dataCells = tempGrid.getDataCellList();
+  const totalCellBits = dataCells.length * tempGrid.bitsPerCell;
+  const totalFrameBytes = Math.floor(totalCellBits / 8);
+
+  // Compress Document
+  const utf8Encoder = new TextEncoder();
+  const rawBytes = utf8Encoder.encode(htmlContent);
+  const compressedBytes = await compressDeflateRaw(rawBytes);
+  const docCrc = crc32(compressedBytes);
+  const docId = (Math.floor(Math.random() * 0xFFFF)) & 0xFFFF;
+
+  // Header = 16 bytes, RS ECC = ~30% of frame bytes
+  const headerSize = 16;
+  const eccSize = Math.max(10, Math.floor(totalFrameBytes * 0.30));
+  const unencodedDataLen = totalFrameBytes - eccSize;
+  const maxPayloadPerFrame = unencodedDataLen - headerSize;
+
+  if (maxPayloadPerFrame <= 16) {
+    alert("가로 해상도가 너무 작거나 셀 크기가 너무 큽니다. 가로폭을 늘리거나 셀 크기를 줄여주세요.");
+    return;
+  }
+
+  // Split into chunks
+  const dataChunks = [];
+  let offset = 0;
+  while (offset < compressedBytes.length) {
+    const chunkLen = Math.min(compressedBytes.length - offset, maxPayloadPerFrame);
+    dataChunks.push(compressedBytes.slice(offset, offset + chunkLen));
+    offset += chunkLen;
+  }
+
+  const dataFrameCount = dataChunks.length;
+  const parityCount = (dataFrameCount > 1) ? Math.max(1, Math.ceil(dataFrameCount * 0.25)) : 0;
+  const totalFrames = dataFrameCount + parityCount;
+
+  // Generate Parity Frames
+  for (let p = 0; p < parityCount; p++) {
+    const pChunk = new Uint8Array(maxPayloadPerFrame);
+    for (let d = 0; d < dataFrameCount; d++) {
+      const src = dataChunks[d];
+      for (let k = 0; k < src.length; k++) {
+        pChunk[k] ^= src[k];
+      }
+    }
+    dataChunks.push(pChunk);
+  }
+
+  // Build each physical frame
+  slideFrames = [];
+  for (let fIdx = 0; fIdx < totalFrames; fIdx++) {
+    const chunk = dataChunks[fIdx];
+    const unencodedBuffer = new Uint8Array(unencodedDataLen);
+
+    // 16-byte Header:
+    unencodedBuffer[0] = 0x49; // 'I'
+    unencodedBuffer[1] = 0x4D; // 'M'
+    unencodedBuffer[2] = dataFrameCount & 0xFF;
+    unencodedBuffer[3] = colorMode & 0xFF;
+    unencodedBuffer[4] = widthCells & 0xFF;
+    unencodedBuffer[5] = heightCells & 0xFF;
+    unencodedBuffer[6] = (docId >> 8) & 0xFF;
+    unencodedBuffer[7] = docId & 0xFF;
+    unencodedBuffer[8] = fIdx & 0xFF;
+    unencodedBuffer[9] = totalFrames & 0xFF;
+    unencodedBuffer[10] = (chunk.length >> 8) & 0xFF;
+    unencodedBuffer[11] = chunk.length & 0xFF;
+    unencodedBuffer[12] = (docCrc >>> 24) & 0xFF;
+    unencodedBuffer[13] = (docCrc >>> 16) & 0xFF;
+    unencodedBuffer[14] = (docCrc >>> 8) & 0xFF;
+    unencodedBuffer[15] = docCrc & 0xFF;
+
+    // Copy chunk payload
+    unencodedBuffer.set(chunk, 16);
+
+    // 1. Multi-block Interleaved Reed-Solomon Error Correction:
+    const frameBuffer = new Uint8Array(totalFrameBytes);
+    const encodedInterleaved = rsEncodeBlocks(unencodedBuffer, eccSize);
+    frameBuffer.set(encodedInterleaved.subarray(0, totalFrameBytes), 0);
+
+    // 2. Scramble entire frame with fixed non-standard PRNG key:
+    const scrambler = makeScrambler(0x494D434D);
+    for (let i = 0; i < totalFrameBytes; i++) {
+      frameBuffer[i] ^= scrambler();
+    }
+
+    // Construct Grid
+    const grid = new ImemoGrid(widthCells, heightCells, colorMode);
+
+    // Format metadata cells (Row 4, cols 8..15)
+    const fmtByte1 = ((colorMode & 0x03) << 6) | ((cellSize & 0x0F) << 2);
+    for (let b = 0; b < 8; b++) {
+      const bit = (fmtByte1 >> (7 - b)) & 1;
+      grid.setReserved(4, 8 + b, bit);
+      grid.setReserved(heightCells - 5, 8 + b, bit);
+    }
+
+    // Map frameBuffer bytes into data cells
+    let byteIdx = 0;
+    let bitOffset = 7;
+    const bpc = grid.bitsPerCell;
+
+    for (let cIdx = 0; cIdx < dataCells.length; cIdx++) {
+      const { r, c } = dataCells[cIdx];
+      let symVal = 0;
+      if (bpc === 1) {
+        if (byteIdx < totalFrameBytes) {
+          symVal = (frameBuffer[byteIdx] >> bitOffset) & 1;
+          bitOffset--;
+          if (bitOffset < 0) { bitOffset = 7; byteIdx++; }
+        }
+      } else if (bpc === 2) {
+        if (byteIdx < totalFrameBytes) {
+          symVal = (frameBuffer[byteIdx] >> (bitOffset - 1)) & 0x03;
+          bitOffset -= 2;
+          if (bitOffset < 0) { bitOffset = 7; byteIdx++; }
+        }
+      } else if (bpc === 3) {
+        for (let bit = 0; bit < 3; bit++) {
+          if (byteIdx < totalFrameBytes) {
+            const b = (frameBuffer[byteIdx] >> bitOffset) & 1;
+            symVal = (symVal << 1) | b;
+            bitOffset--;
+            if (bitOffset < 0) { bitOffset = 7; byteIdx++; }
+          }
+        }
+      } else if (bpc === 4) {
+        if (byteIdx < totalFrameBytes) {
+          symVal = (frameBuffer[byteIdx] >> (bitOffset - 3)) & 0x0F;
+          bitOffset -= 4;
+          if (bitOffset < 0) { bitOffset = 7; byteIdx++; }
+        }
+      }
+      grid.grid[r * grid.W + c] = symVal;
+    }
+
+    slideFrames.push({ grid, cellSize, widthCells, heightCells, colorMode });
+  }
+
+  // Update UI Stats
+  const reduction = Math.round((1 - compressedBytes.length / rawBytes.length) * 100);
+  const estSec = Math.max(1, Math.ceil(totalFrames * intervalMs / 1000));
+  const imgLabel = imgCount > 0 ? ` (이미지 ${imgCount}장 포함, 예상 수집 ~${estSec}초)` : '';
+
+  document.getElementById('statsBadge').innerHTML =
+    `원본: ${rawBytes.length.toLocaleString()} B ➔ 압축: ${compressedBytes.length.toLocaleString()} B (${reduction}% 감소) | 총 ${totalFrames}프레임${imgLabel}`;
+
+  if (isCodeFolded) {
+    toggleFoldCode();
+  }
+
+  document.getElementById('previewSection').style.display = 'block';
+  document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+
+  currentFrameIdx = 0;
+  renderCurrentFrame();
+
+  if (slideIntervalId) clearInterval(slideIntervalId);
+  if (totalFrames > 1 && isPlaying) {
+    slideIntervalId = setInterval(nextFrame, intervalMs);
+  }
+}
+
+/* ==========================================================================
+   8. Chrome Optimized Direct Pixel Rendering (putImageData 32-bit SIMD)
+   ========================================================================== */
+function renderFrameToCanvas(canvas, frameObj) {
+  const { grid, cellSize, widthCells, heightCells, colorMode } = frameObj;
+  const palette = PALETTES[colorMode];
+  const totalW = widthCells * cellSize;
+  const totalH = heightCells * cellSize;
+
+  if (canvas.width !== totalW || canvas.height !== totalH) {
+    canvas.width = totalW;
+    canvas.height = totalH;
+  }
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: false, alpha: false });
+  ctx.imageSmoothingEnabled = false;
+
+  const imgData = ctx.createImageData(totalW, totalH);
+  const data32 = new Uint32Array(imgData.data.buffer);
+
+  const palette32 = new Uint32Array(palette.length);
+  for (let i = 0; i < palette.length; i++) {
+    const [r, g, b] = palette[i];
+    palette32[i] = ((0xFF << 24) | (b << 16) | (g << 8) | r) >>> 0;
+  }
+  const white32 = 0xFFFFFFFF;
+
+  for (let r = 0; r < heightCells; r++) {
+    const yStart = r * cellSize;
+    for (let c = 0; c < widthCells; c++) {
+      const xStart = c * cellSize;
+      const val = grid.grid[r * widthCells + c];
+      const pixel32 = (val >= 0 && val < palette32.length) ? palette32[val] : white32;
+
+      for (let py = 0; py < cellSize; py++) {
+        const rowOffset = (yStart + py) * totalW + xStart;
+        for (let px = 0; px < cellSize; px++) {
+          data32[rowOffset + px] = pixel32;
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function renderCurrentFrame() {
+  if (slideFrames.length === 0) return;
+  const frameObj = slideFrames[currentFrameIdx];
+  const canvas = document.getElementById('matrixCanvas');
+  renderFrameToCanvas(canvas, frameObj);
+
+  const fsCanvas = document.getElementById('fsMatrixCanvas');
+  if (document.getElementById('fsOverlay').style.display === 'flex') {
+    renderFrameToCanvas(fsCanvas, frameObj);
+    document.getElementById('fsFrameInfo').innerText =
+      `프레임 ${currentFrameIdx + 1} / ${slideFrames.length}`;
+  }
+
+  document.getElementById('frameIndicator').innerText =
+    `프레임 ${currentFrameIdx + 1} / ${slideFrames.length}`;
+  const pct = ((currentFrameIdx + 1) / slideFrames.length) * 100;
+  document.getElementById('progressBar').style.width = `${pct}%`;
+}
+
+function nextFrame() {
+  if (slideFrames.length <= 1) return;
+  currentFrameIdx = (currentFrameIdx + 1) % slideFrames.length;
+  renderCurrentFrame();
+}
+
+function prevFrame() {
+  if (slideFrames.length <= 1) return;
+  currentFrameIdx = (currentFrameIdx - 1 + slideFrames.length) % slideFrames.length;
+  renderCurrentFrame();
+}
+
+function togglePlayPause() {
+  isPlaying = !isPlaying;
+  const btn = document.getElementById('btnPlayPause');
+  if (isPlaying) {
+    btn.innerText = '일시정지 ⏸';
+    const intervalMs = parseInt(document.getElementById('selInterval').value, 10);
+    if (slideIntervalId) clearInterval(slideIntervalId);
+    slideIntervalId = setInterval(nextFrame, intervalMs);
+  } else {
+    btn.innerText = '재생 ▶';
+    if (slideIntervalId) clearInterval(slideIntervalId);
+    slideIntervalId = null;
+  }
+}
+
+// Native Chrome Fullscreen API integration
+async function openFullscreen() {
+  const overlay = document.getElementById('fsOverlay');
+  overlay.style.display = 'flex';
+  renderCurrentFrame();
+
+  if (document.documentElement.requestFullscreen) {
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (e) {}
+  }
+}
+
+async function closeFullscreen() {
+  document.getElementById('fsOverlay').style.display = 'none';
+  if (document.fullscreenElement && document.exitFullscreen) {
+    try {
+      await document.exitFullscreen();
+    } catch (e) {}
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.getElementById('fsOverlay').style.display = 'none';
+  }
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('fsOverlay').style.display === 'flex' || document.fullscreenElement) {
+      closeFullscreen();
+    } else if (isEditorMaximized) {
+      toggleMaximizeEditor();
+    }
+  }
+});
+
+// Chrome Screen Width Initializer
+window.addEventListener('DOMContentLoaded', () => {
+  const availW = window.screen.availWidth || window.screen.width || 1920;
+  const optScreen = document.getElementById('optScreen');
+  if (optScreen) {
+    optScreen.innerText = `현재 모니터 가로폭 맞춤 (${availW} px)`;
+  }
+  updateContainerWidth();
+});
+</script>
+
+</body>
+</html>
