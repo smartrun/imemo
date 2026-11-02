@@ -31,7 +31,7 @@
 ### 2. macOS 리더기 앱 (`ImemoReader.app`)
 - **macOS 26+ (27.0.1) 호환**: Apple 최신 `ScreenCaptureKit` 기반 250ms 고속 연속 캡처.
 - **원격 화면 특정 영역 캡처**:
-  - **[영역 선택]**: 반투명 오버레이 창에서 마우스 드래그로 바코드 영역 지정.
+  - **[영역 선택]**: 반투명 오버레이 창에서 마우스 드래그로 영역 지정 (실시간 좌표 HUD `X, Y, W, H` 표시 및 자동 저장).
   - 지정한 영역 좌표는 `UserDefaults`에 자동 저장되어 재사용.
   - 바코드 외곽 검정 테두리 자동 정렬 기능으로 여백이 포함되어도 정확하게 인식.
 - **비표준 보안 & 노이즈 복구**:
@@ -150,3 +150,4 @@ swiftc -parse-as-library -module-cache-path /tmp/swift-cache \
 
 ## 📄 라이선스
 MIT License
+

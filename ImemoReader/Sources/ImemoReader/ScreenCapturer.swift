@@ -14,13 +14,6 @@ public final class ScreenCapturer: ObservableObject {
     @Published public var viewMode: Int = 0
     @Published public var copyBannerText: String? = nil
 
-    public func showBanner(_ msg: String) {
-        copyBannerText = msg
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            self?.copyBannerText = nil
-        }
-    }
-
     private var timer: Timer?
     public let collector = SlideCollector()
 
@@ -44,7 +37,9 @@ public final class ScreenCapturer: ObservableObject {
         if let str = UserDefaults.standard.string(forKey: userDefaultsKey) {
             let nsRect = NSRectFromString(str)
             if nsRect.width > 20 && nsRect.height > 20 {
-                self.selectedRect = CGRect(x: nsRect.origin.x, y: nsRect.origin.y, width: nsRect.width, height: nsRect.height)
+                let rect = CGRect(x: nsRect.origin.x, y: nsRect.origin.y, width: nsRect.width, height: nsRect.height)
+                self.selectedRect = rect
+                self.statusMessage = "저장된 영역 로드됨: [X: \(Int(rect.origin.x)), Y: \(Int(rect.origin.y)), W: \(Int(rect.width)), H: \(Int(rect.height))]"
             }
         }
     }
@@ -53,6 +48,14 @@ public final class ScreenCapturer: ObservableObject {
         self.selectedRect = rect
         let str = NSStringFromRect(NSRect(x: rect.origin.x, y: rect.origin.y, width: rect.width, height: rect.height))
         UserDefaults.standard.set(str, forKey: userDefaultsKey)
+        UserDefaults.standard.synchronize()
+        self.statusMessage = "영역 자동 저장 완료: [X: \(Int(rect.origin.x)), Y: \(Int(rect.origin.y)), W: \(Int(rect.width)), H: \(Int(rect.height))]"
+    }
+
+    public func setManualRect(x: Double, y: Double, w: Double, h: Double) {
+        guard w > 20 && h > 20 else { return }
+        let rect = CGRect(x: x, y: y, width: w, height: h)
+        saveRect(rect)
     }
 
     public func startCapture() {
@@ -69,12 +72,11 @@ public final class ScreenCapturer: ObservableObject {
         }
 
         isCapturing = true
-        statusMessage = "화면 연속 캡처 및 인식 중..."
+        statusMessage = "화면 연속 캡처 및 인식 중... [X: \(Int(rect.origin.x)), Y: \(Int(rect.origin.y))]"
         collector.reset()
         updateChips()
 
         timer?.invalidate()
-        // 250ms interval catches 400ms~1500ms slide intervals reliably
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.captureTick()
@@ -98,17 +100,15 @@ public final class ScreenCapturer: ObservableObject {
             let filter = SCContentFilter(display: display, excludingWindows: [])
             let config = SCStreamConfiguration()
             config.sourceRect = rect
-            config.width = max(100, Int(rect.width * 2)) // 2x Retina resolution
+            config.width = max(100, Int(rect.width * 2))
             config.height = max(50, Int(rect.height * 2))
             config.showsCursor = false
 
             let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
 
-            // Decode
             if let frame = MatrixDecoder.decodeImage(cgImage) {
                 updateChips()
                 if let result = collector.addFrame(frame) {
-                    // Restoration Complete!
                     self.restoredResult = result
                     self.statusMessage = "문서 복원 완료! (크기: \(result.decompressedBytes.formatted()) B, 총 \(result.totalFrames)프레임)"
                     self.stopCapture()
@@ -118,7 +118,6 @@ public final class ScreenCapturer: ObservableObject {
                 updateChips()
             }
         } catch {
-            // SC error (e.g. permission or display sleep)
             self.statusMessage = "ScreenCaptureKit 오류: \(error.localizedDescription)"
         }
     }
@@ -145,7 +144,13 @@ public final class ScreenCapturer: ObservableObject {
         RegionSelectorWindowController.show { [weak self] rect in
             guard rect.width > 20 && rect.height > 20 else { return }
             self?.saveRect(rect)
-            self?.statusMessage = "영역 지정 완료: \(Int(rect.width)) × \(Int(rect.height)) px"
+        }
+    }
+
+    public func showBanner(_ msg: String) {
+        copyBannerText = msg
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.copyBannerText = nil
         }
     }
 }

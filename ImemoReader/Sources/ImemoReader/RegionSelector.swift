@@ -53,12 +53,12 @@ final class SelectionOverlayView: NSView {
         super.draw(dirtyRect)
 
         // Semi-transparent dark overlay
-        NSColor.black.withAlphaComponent(0.3).setFill()
+        NSColor.black.withAlphaComponent(0.35).setFill()
         bounds.fill()
 
         guard let start = startPoint, let curr = currentPoint else {
             // Draw instruction banner
-            let text = "원격 화면의 바코드 영역을 마우스로 드래그하여 선택하세요 (ESC: 취소)"
+            let text = "원격 화면의 바코드 영역을 마우스로 드래그하세요 (ESC: 취소)"
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.boldSystemFont(ofSize: 18),
                 .foregroundColor: NSColor.white
@@ -81,30 +81,50 @@ final class SelectionOverlayView: NSView {
         NSGraphicsContext.current?.compositingOperation = .clear
         let path = NSBezierPath(rect: selectionRect)
         path.fill()
+        NSGraphicsContext.restoreGraphicsState()
 
         // Border around selection
+        NSGraphicsContext.saveGraphicsState()
         NSColor.systemGreen.setStroke()
         let strokePath = NSBezierPath(rect: selectionRect)
         strokePath.lineWidth = 2.5
         strokePath.setLineDash([6.0, 4.0], count: 2, phase: 0.0)
         strokePath.stroke()
 
-        // Size badge
-        let info = "\(Int(selectionRect.width)) × \(Int(selectionRect.height)) px"
+        // Calculate CoreGraphics screen coordinates (flip Y)
+        guard let screen = window?.screen ?? NSScreen.main else {
+            NSGraphicsContext.restoreGraphicsState()
+            return
+        }
+        let cgY = screen.frame.height - selectionRect.origin.y - selectionRect.height
+        let cgX = selectionRect.origin.x
+
+        // Live Coordinate HUD Badge
+        let info = "📍 X: \(Int(cgX)), Y: \(Int(cgY)) | W: \(Int(selectionRect.width)) × H: \(Int(selectionRect.height)) px"
         let badgeAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .bold),
             .foregroundColor: NSColor.white
         ]
         let badgeSize = (info as NSString).size(withAttributes: badgeAttrs)
+
+        // Position badge above or inside selection
+        let badgeY = (selectionRect.minY >= 32) ? (selectionRect.minY - 28) : (selectionRect.maxY + 8)
         let badgeRect = NSRect(
-            x: selectionRect.minX,
-            y: max(0, selectionRect.minY - 24),
-            width: badgeSize.width + 12,
-            height: 20
+            x: max(10, selectionRect.minX),
+            y: badgeY,
+            width: badgeSize.width + 16,
+            height: 24
         )
-        NSColor.black.withAlphaComponent(0.8).setFill()
-        NSBezierPath(roundedRect: badgeRect, xRadius: 4, yRadius: 4).fill()
-        (info as NSString).draw(at: NSPoint(x: badgeRect.minX + 6, y: badgeRect.minY + 2), withAttributes: badgeAttrs)
+
+        NSColor.black.withAlphaComponent(0.85).setFill()
+        NSBezierPath(roundedRect: badgeRect, xRadius: 5, yRadius: 5).fill()
+
+        NSColor.systemGreen.setStroke()
+        let borderPath = NSBezierPath(roundedRect: badgeRect, xRadius: 5, yRadius: 5)
+        borderPath.lineWidth = 1
+        borderPath.stroke()
+
+        (info as NSString).draw(at: NSPoint(x: badgeRect.minX + 8, y: badgeRect.minY + 4), withAttributes: badgeAttrs)
 
         NSGraphicsContext.restoreGraphicsState()
     }
@@ -130,7 +150,6 @@ final class SelectionOverlayView: NSView {
         )
 
         guard nsRect.width > 20 && nsRect.height > 20 else {
-            // Cancel if too small
             onFinish?(CGRect.zero)
             return
         }
@@ -149,4 +168,3 @@ final class SelectionOverlayView: NSView {
         }
     }
 }
-

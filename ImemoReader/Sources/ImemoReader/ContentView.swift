@@ -70,7 +70,7 @@ public struct ContentView: View {
                 .background(Color(NSColor.windowBackgroundColor))
                 .overlay(Rectangle().frame(height: 1).foregroundColor(Color(NSColor.separatorColor)), alignment: .bottom)
 
-            // Status Bar & Frame Chips
+            // Status Bar & Coordinates & Frame Chips
             statusSection
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -138,7 +138,7 @@ public struct ContentView: View {
                 handleDrop(providers: providers)
             }
         }
-        .frame(minWidth: 800, minHeight: 600)
+        .frame(minWidth: 850, minHeight: 620)
     }
 
     // MARK: - Subviews
@@ -154,7 +154,7 @@ public struct ContentView: View {
             Button(action: { capturer.selectRegion() }) {
                 Label("영역 선택", systemImage: "crop")
             }
-            .help("원격 화면의 바코드 영역을 마우스로 지정합니다.")
+            .help("원격 화면의 바코드 영역을 마우스로 드래그하여 지정합니다.")
 
             if capturer.isCapturing {
                 Button(action: { capturer.stopCapture() }) {
@@ -191,12 +191,37 @@ public struct ContentView: View {
 
             Spacer()
 
+            // Selected Coordinates Display Badge
             if let rect = capturer.selectedRect {
-                Text("선택 영역: \(Int(rect.width)) × \(Int(rect.height)) px")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 11))
+                    Text("좌표:")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("X: \(Int(rect.origin.x)), Y: \(Int(rect.origin.y)), W: \(Int(rect.width)), H: \(Int(rect.height))")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    Text("(자동 저장됨)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(NSColor.textBackgroundColor))
+                .cornerRadius(6)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 11))
+                    Text("영역 미선택 (좌표 없음)")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
             }
 
+            // Frame Progress Chips
             if !capturer.frameChips.isEmpty {
                 HStack(spacing: 4) {
                     ForEach(0..<capturer.frameChips.count, id: \.self) { idx in
@@ -226,14 +251,33 @@ public struct ContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("1. 웹 에디터(index.html)에서 문서를 작성하고 [이미지 생성]을 클릭합니다.")
                 Text("2. 상단 [영역 선택] 버튼을 눌러 원격 데스크톱 창의 코드 영역을 드래그합니다.")
+                Text("   (드래그 시 화면에 실시간 좌표가 표시되며, 완료 즉시 자동 저장됩니다)")
                 Text("3. [캡처 시작]을 누르면 슬라이드가 자동으로 감지되어 문서로 복원됩니다.")
-                Text("   (또는 이미지 파일을 이 창으로 드래그앤드롭하여 열 수 있습니다)")
             }
             .font(.system(size: 13))
             .foregroundColor(.secondary)
             .padding(16)
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(8)
+
+            // Saved Coordinates Indicator in Placeholder
+            if let rect = capturer.selectedRect {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("저장된 캡처 영역 좌표:")
+                        .bold()
+                    Text("X: \(Int(rect.origin.x)), Y: \(Int(rect.origin.y)), W: \(Int(rect.width)), H: \(Int(rect.height)) px")
+                        .font(.system(.body, design: .monospaced))
+                        .bold()
+                }
+                .font(.system(size: 13))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .background(Color.green.opacity(0.08))
+                .cornerRadius(6)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.green.opacity(0.2), lineWidth: 1))
+            }
 
             HStack(spacing: 12) {
                 Button("영역 선택하기") {
@@ -315,4 +359,3 @@ public struct ContentView: View {
         return true
     }
 }
-
